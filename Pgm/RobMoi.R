@@ -1,16 +1,16 @@
+library(vegan)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(stringr)
+library(gdata)
+library(readxl)
 
-#rm(list=ls())
-library(vegan); library(dplyr); library(tidyr); library(ggplot2); library(stringr); library(gdata); library(readxl); 
-library(mice)
-
-#------------------------
-# Parms
-
-data.dir <- "/home/diabakhate/HydroGen_Abdou"
-setwd(dir=data.dir) 
-
-data1=read_excel("Genocenoses_env_parameters_all_tara.xls")
-str(data1)
+data.wd <- "C:/Users/pc_user/Documents/HydroGen_Abdou"
+setwd(dir=data.wd) 
+#--
+data1= read_excel("~/HydroGen_Abdou/Genocenoses_env_parameters_all_tara.xlsx")
+names(data1)
 
 
 data.0_0.2 = data1[which((as.character(data1$Fraction) == "0-0.2") == TRUE),]    #dim(70,20)
@@ -35,9 +35,9 @@ size_fraction4 = "43952" ########c'est le 5-20
 size_fraction5 = "20-180"
 size_fraction6 = "180-2000"
 
-design = data.0.8_5
+design = data.5_20
 
-import_data(size_fraction3, samples = rownames(design)) 
+import_data(size_fraction4, samples = rownames(design))
 
 design <- design[metagenomic_sample, ]  #nouveau jeu de taille (70,20)
 dim(design)
@@ -48,7 +48,7 @@ dim(design)
 
 #------------------------
 # Lecture des covariables
-Genocenoses_env_parameters_all_tara <- read_excel("Genocenoses_env_parameters_all_tara.xls")
+Genocenoses_env_parameters_all_tara <- data1
 CovarTot = as.data.frame(Genocenoses_env_parameters_all_tara);
 CovarTot$Temp = CovarTot$T; CovarTot$T = c()
 #------------------------
@@ -60,6 +60,7 @@ CovarTot$Si = log10(CovarTot$Si);
 summary(CovarTot)
 # #------------------------
 # # Imputation
+library(mice)
 CovarImput = complete(mice(CovarTot, method="norm.predict", m=5))
 summary(CovarImput)
 #save(CovarImput, file=paste0(data.dir, 'Genocenoses_Imput.Rdata'))
@@ -67,18 +68,20 @@ summary(CovarImput)
 
 #------------------------
 # Selection des stations
-fraction = '0.8-5'     
+fraction = '43952'
 Covar = CovarImput[which(CovarImput$Fraction==fraction), ] # on s'intéresse à cette sous data frame de fraction
-Covar = Covar[, c(4, 5, 20, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17)] #Notre jeu de donnée avec les colonnes qui nous intéresse
+names(Covar)
+Covar = Covar[, c(3,6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,17,20,4, 5)] #Notre jeu de donnée avec les colonnes qui nous intéresse
 n = nrow(Covar); p = ncol(Covar)
 head(Covar)
 
 
 #------------------------
 # Définition des groupes des variables
-names(Covar)
-Group = c(3, 3, 1, rep(2, 11), 1) # 3 = geographie, 1 = physique, 2= chimie
-GroupName = c('physique', 'chimie','geographie')
+#Group = c(3,4, 4, 1, rep(2, 11), 1) # 4 = geographie, 1 = physique, 2= chimie,3=Genocenose
+Group = c(1,rep(2,11))
+#GroupName = c('physique', 'chimie','geographie','Genocenose')
+GroupName = c('Genocenose','Chimie')
 G = max(Group)    # la valeur 3
 GroupOrder = order(Group)         # on ordonne le groupe suivant les chiffres 1-2-3
 GroupOrdered = Group[order(Group)]
@@ -89,7 +92,7 @@ head(CovarOrdered)
 # Dist = as.dist(jaccard_abundance)              # Pour une matrice donnée
 # ADONIS = adonis(Dist ~ ., CovarOrdered)
 # ADONIS
-# 
+#
 # # Statistiques des groupes
 # TotalSumsOfSqs = ADONIS$aov.tab$SumsOfSqs[length(ADONIS$aov.tab$SumsOfSqs)]
 # ResidSumsOfSqs = ADONIS$aov.tab$SumsOfSqs[length(ADONIS$aov.tab$SumsOfSqs)-1]
@@ -105,7 +108,7 @@ head(CovarOrdered)
 #   GroupF[g] = GroupMeanSqs[g] / ResidMeanSqs
 #   GroupR2[g] = GroupSumsOfSqs[g] / TotalSumsOfSqs
 # }
-# 
+#
 # # Permutations
 # B = 999; GroupPval = rep(0, G)  #B=999
 # for (g in 1:G){
@@ -121,7 +124,7 @@ head(CovarOrdered)
 #     GroupSumsOfSqsPermut = sum(ADONISPermut$aov.tab$SumsOfSqs[GroupList])
 #     Fpermut[b] = GroupSumsOfSqsPermut / length(GroupList) / (ResidSumsOfSqsPermut / ResidDf)
 #   }
-#   hist(Fpermut, breaks=sqrt(B), main=paste(GroupName[g], ': F=', round(Fpermut[g], 3))); abline(v=Fpermut[g], col=2); 
+#   hist(Fpermut, breaks=sqrt(B), main=paste(GroupName[g], ': F=', round(Fpermut[g], 3))); abline(v=Fpermut[g], col=2);
 #   GroupPval[g] = (1+sum(Fpermut>=Fpermut[g]))/(1+B)
 # }
 # GroupAov = as.data.frame(cbind(GroupDf, GroupSumsOfSqs, GroupMeanSqs, GroupF, GroupR2, GroupPval))
@@ -135,23 +138,23 @@ head(CovarOrdered)
 ############################
 # Les résultats de adonis pour les variables concaténées
 library(parallel)
-nb_cores <- 7
+#nb_cores <- 7
 
-# 
+#
 formulas <- list(
-  as.formula(as.dist(jaccard_abundance) ~.),
-  as.formula(as.dist(ab_jaccard_abundance) ~.),
-  as.formula(as.dist(braycurtis_abundance) ~.),
-  as.formula(as.dist(ab_ochiai_abundance) ~.),
-  as.formula(as.dist(ab_sorensen_abundance) ~.),
-  as.formula(as.dist(simka_jaccard_abundance) ~.),
-  as.formula(as.dist(chord_prevalence) ~.),
-  as.formula(as.dist(jaccard_prevalence) ~.),
-  as.formula(as.dist(kulczynski_prevalence) ~.),
-  as.formula(as.dist(ochiai_prevalence) ~.),
-  as.formula(as.dist(whittaker_prevalence) ~.),
-  as.formula(as.dist(simka_jaccard_prevalence) ~.),
-  as.formula(as.dist(sorensen_braycurtis_prevalence) ~.))
+as.formula(as.dist(jaccard_abundance) ~.),
+as.formula(as.dist(ab_jaccard_abundance) ~.),
+as.formula(as.dist(braycurtis_abundance) ~.),
+as.formula(as.dist(ab_ochiai_abundance) ~.),
+as.formula(as.dist(ab_sorensen_abundance) ~.),
+as.formula(as.dist(simka_jaccard_abundance) ~.),
+as.formula(as.dist(chord_prevalence) ~.),
+as.formula(as.dist(jaccard_prevalence) ~.),
+as.formula(as.dist(kulczynski_prevalence) ~.),
+as.formula(as.dist(ochiai_prevalence) ~.),
+as.formula(as.dist(whittaker_prevalence) ~.),
+as.formula(as.dist(simka_jaccard_prevalence) ~.),
+as.formula(as.dist(sorensen_braycurtis_prevalence) ~.))
 
 # formulas <- list(
 #   as.formula(as.dist(jaccard_abundance) ~.),
@@ -166,10 +169,10 @@ formulas <- list(
 #   as.formula(as.dist(simka_jaccard_prevalence) ~.),
 #   as.formula(as.dist(sorensen_braycurtis_prevalence) ~.))
 
-models <- mclapply(formulas, adonis, data = CovarOrdered, mc.cores = nb_cores)
-
+models <- mclapply(formulas, adonis, data = CovarOrdered)
+#models <- mclapply(formulas, adonis, data = CovarOrdered, mc.cores = nb_cores)
 getSummary <- function(output_adonis) {
-  
+
   TotalSumsOfSqs = output_adonis$aov.tab$SumsOfSqs[length(output_adonis$aov.tab$SumsOfSqs)]
   ResidSumsOfSqs = output_adonis$aov.tab$SumsOfSqs[length(output_adonis$aov.tab$SumsOfSqs)-1]
   ResidMeanSqs = output_adonis$aov.tab$MeanSqs[length(output_adonis$aov.tab$MeanSqs)-1]
@@ -184,7 +187,7 @@ getSummary <- function(output_adonis) {
     GroupF[g] = GroupMeanSqs[g] / ResidMeanSqs
     GroupR2[g] = GroupSumsOfSqs[g] / TotalSumsOfSqs
   }
-  
+
   # Permutations
   B = 999; GroupPval = rep(0, G)   # NORMALEMENT B=999 MAIS ÇA PREND DU TEMPS À COMPILER C POURQUOI J'AI CHANGÉ LA VALEUR
   for (g in 1:G){
@@ -200,18 +203,19 @@ getSummary <- function(output_adonis) {
       GroupSumsOfSqsPermut = sum(ADONISPermut$aov.tab$SumsOfSqs[GroupList])
       Fpermut[b] = GroupSumsOfSqsPermut / length(GroupList) / (ResidSumsOfSqsPermut / ResidDf)
     }
-    hist(Fpermut, breaks=sqrt(B), main=paste(GroupName[g], ': F=', round(Fpermut[g], 3))); abline(v=Fpermut[g], col=2); 
+    hist(Fpermut, breaks=sqrt(B), main=paste(GroupName[g], ': F=', round(Fpermut[g], 3))); abline(v=Fpermut[g], col=2);
     GroupPval[g] = (1+sum(Fpermut>=Fpermut[g]))/(1+B)
   }
-  
+
   GroupAov = as.data.frame(cbind(GroupDf, GroupSumsOfSqs, GroupMeanSqs, GroupF, GroupR2, GroupPval, GroupName))
   row.names(GroupAov) = GroupName
   GroupAov
 }
 
-summaries <- mclapply(models, getSummary, mc.cores = nb_cores)
+summaries <- mclapply(models, getSummary)
+#summaries <- mclapply(models, getSummary, mc.cores = nb_cores)
 
-# 
+#
 names(summaries) <-
   c("jaccard_abundance","ab_jaccard_abundance","braycurtis_abundance","ab_ochiai_abundance","ab_sorensen_abundance",
     "simka_jaccard_abundance","chord_prevalence","jaccard_prevalence","kulczynski_prevalence","ochiai_prevalence",
@@ -229,29 +233,27 @@ rownames(summaries_all) <- 1:nrow(summaries_all)
 
 head(summaries_all)
 
-write.csv(summaries_all,"tab08_5.csv")
+write.table(summaries_all,"tab5-20.csv",sep = ";")
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #############################################################################################
 
 #________________________ Les résultats des 6 feuilles excel d'Adonis sous forme graphique ____
-# library(readxl)
-# 
-# Adonis_Pull <- lapply(1:6, read_sheet <- function(i) {
-#   read_excel("Adonis_all_/Adonis/Adonis_Pull.xlsx",
-#              sheet = i, col_types = rep("text", 4))
-# }) %>%
-#   bind_rows() %>%
-#   filter(!is.na(Matrice)) %>%
-#   mutate(pval = as.numeric(`GroupPval`))
-# 
-# ggplot(data = Adonis_Pull, aes(x = Matrice, y = GroupName,
-#                                    fill = cut(pval, breaks = c(0, 0.001, 0.01, 0.05, 0.1, 1)))) +
-#   geom_tile() +
-#   facet_wrap(~Fraction, scales = "free_x") +
-#   scale_fill_brewer(name = "P-value", direction = -1) +
-#   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+ library(readxl)
+#
+Adonis_Pull <- lapply(1:6, read_sheet <- function(i) {
+ # read_excel("Adonis_all_/Adonis/Adonis_Pull.xlsx",
+  #           sheet = i, col_types = rep("text", 4))
+  read_excel("C:/Users/pc_user/Documents/HydroGen_Abdou/AdonisStat/Genocenose_Chimie.xlsx",
+                       sheet = i, col_types = rep("text", 4))
+}) %>%
+  bind_rows() %>%
+  filter(!is.na(Matrice)) %>%
+  mutate(pval = as.numeric(`GroupPval`))
 
-
-
-
+ggplot(data = Adonis_Pull, aes(x = Matrice, y = GroupName,
+                                   fill = cut(pval, breaks = c(0, 0.001, 0.01, 0.05, 0.1, 1)))) +
+  geom_tile() +
+  facet_wrap(~Fraction, scales = "free_x") +
+  scale_fill_brewer(name = "P-value", direction = -1) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
